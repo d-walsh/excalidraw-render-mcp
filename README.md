@@ -68,6 +68,10 @@ mcpb pack .
 gh release create v0.2.0 excalidraw-mcp-app.mcpb --title "v0.2.0" --notes "What changed"
 ```
 
+## Credits
+
+Built with [Excalidraw](https://github.com/excalidraw/excalidraw) — a virtual whiteboard for sketching hand-drawn like diagrams.
+
 ## License
 
 MIT

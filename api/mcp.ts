@@ -8,7 +8,7 @@ const handler = createMcpHandler(
     registerTools(server, distDir);
   },
   { serverInfo: { name: "Excalidraw", version: "1.0.0" } },
-  { basePath: "/api", maxDuration: 60, sessionIdGenerator: undefined },
+  { basePath: "", maxDuration: 60, sessionIdGenerator: undefined },
 );
 
 export { handler as GET, handler as POST, handler as DELETE };

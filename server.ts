@@ -149,14 +149,10 @@ so the user sees the complete picture when generation finishes.
 `;
 
 /**
- * Creates a new MCP server instance with Excalidraw drawing tools.
+ * Registers all Excalidraw tools and resources on the given McpServer.
+ * Shared between local (main.ts) and Vercel (api/mcp.ts) entry points.
  */
-export function createServer(): McpServer {
-  const server = new McpServer({
-    name: "Excalidraw",
-    version: "1.0.0",
-  });
-
+export function registerTools(server: McpServer, distDir: string): void {
   const resourceUri = "ui://excalidraw/mcp-app.html";
 
   // ============================================================
@@ -205,8 +201,6 @@ Call read_me first to learn the element format.`,
   );
 
   // CSP: allow Excalidraw to load fonts from esm.sh
-  // resourceDomains = font-src/script-src/style-src/img-src
-  // connectDomains = connect-src (Fetch API, used by Excalidraw's font loader)
   const cspMeta = {
     ui: {
       csp: {
@@ -222,7 +216,7 @@ Call read_me first to learn the element format.`,
     resourceUri,
     { mimeType: RESOURCE_MIME_TYPE },
     async (): Promise<ReadResourceResult> => {
-      const html = await fs.readFile(path.join(DIST_DIR, "mcp-app.html"), "utf-8");
+      const html = await fs.readFile(path.join(distDir, "mcp-app.html"), "utf-8");
       return {
         contents: [{
           uri: resourceUri,
@@ -238,6 +232,17 @@ Call read_me first to learn the element format.`,
       };
     },
   );
+}
 
+/**
+ * Creates a new MCP server instance with Excalidraw drawing tools.
+ * Used by local entry point (main.ts) and Docker deployments.
+ */
+export function createServer(): McpServer {
+  const server = new McpServer({
+    name: "Excalidraw",
+    version: "1.0.0",
+  });
+  registerTools(server, DIST_DIR);
   return server;
 }

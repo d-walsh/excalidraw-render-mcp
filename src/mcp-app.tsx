@@ -5,8 +5,6 @@ import morphdom from "morphdom";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { initPencilAudio, playStroke } from "./pencil-audio";
-// @ts-ignore — CSS import bypasses package exports
-import "../node_modules/@excalidraw/excalidraw/dist/prod/index.css";
 import { captureInitialElements, onEditorChange, setStorageKey, loadPersistedElements, getLatestEditedElements } from "./edit-context";
 import "./global.css";
 

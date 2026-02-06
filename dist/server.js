@@ -35872,13 +35872,11 @@ fixedPoint: top=[0.5,0], bottom=[0.5,1], left=[0,0.5], right=[1,0.5]
 The diagram displays inline at ~700px width. Design for this constraint.
 
 **Recommended camera sizes (4:3 aspect ratio ONLY):**
-| Size | Width x Height | Use |
-|------|---------------|-----|
-| S | 400 x 300 | Close-up on a small group (2-3 elements) |
-| M | 600 x 450 | Medium view, a section of a diagram |
-| L | 800 x 600 | Standard full diagram (DEFAULT) |
-| XL | 1200 x 900 | Large diagram overview |
-| XXL | 1600 x 1200 | Panorama / final overview of complex diagrams |
+- Camera **S**: width 400, height 300 — close-up on a small group (2-3 elements)
+- Camera **M**: width 600, height 450 — medium view, a section of a diagram
+- Camera **L**: width 800, height 600 — standard full diagram (DEFAULT)
+- Camera **XL**: width 1200, height 900 — large diagram overview. WARNING: font size smaller than 18 is unreadable
+- Camera **XXL**: width 1600, height 1200 — panorama / final overview of complex diagrams. WARNING: minimum readable font size is 21
 
 ALWAYS use one of these exact sizes. Non-4:3 viewports cause distortion.
 

@@ -42,7 +42,7 @@ function extractViewportAndElements(elements: any[]): {
   const drawElements: any[] = [];
 
   for (const el of elements) {
-    if (el.type === "viewportUpdate") {
+    if (el.type === "cameraUpdate" || el.type === "viewportUpdate") {
       viewport = { x: el.x, y: el.y, width: el.width, height: el.height };
     } else {
       drawElements.push(el);

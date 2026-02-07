@@ -26311,9 +26311,6 @@ class Protocol {
     }
   }
   async connect(transport) {
-    if (this._transport) {
-      throw new Error("Already connected to a transport. Call close() before connecting to a new transport, or use a separate Protocol instance per connection.");
-    }
     this._transport = transport;
     const _onclose = this.transport?.onclose;
     this._transport.onclose = () => {
@@ -26346,10 +26343,6 @@ class Protocol {
     this._progressHandlers.clear();
     this._taskProgressTokens.clear();
     this._pendingDebouncedNotifications.clear();
-    for (const controller of this._requestHandlerAbortControllers.values()) {
-      controller.abort();
-    }
-    this._requestHandlerAbortControllers.clear();
     const error48 = McpError.fromError(ErrorCode.ConnectionClosed, "Connection closed");
     this._transport = undefined;
     this.onclose?.();
@@ -26400,8 +26393,6 @@ class Protocol {
       sessionId: capturedTransport?.sessionId,
       _meta: request.params?._meta,
       sendNotification: async (notification) => {
-        if (abortController.signal.aborted)
-          return;
         const notificationOptions = { relatedRequestId: request.id };
         if (relatedTaskId) {
           notificationOptions.relatedTask = { taskId: relatedTaskId };
@@ -26409,9 +26400,6 @@ class Protocol {
         await this.notification(notification, notificationOptions);
       },
       sendRequest: async (r, resultSchema, options) => {
-        if (abortController.signal.aborted) {
-          throw new McpError(ErrorCode.ConnectionClosed, "Request was cancelled");
-        }
         const requestOptions = { ...options, relatedRequestId: request.id };
         if (relatedTaskId && !requestOptions.relatedTask) {
           requestOptions.relatedTask = { taskId: relatedTaskId };
@@ -35987,7 +35975,7 @@ This demonstrates camera panning across a large canvas to tell a story. Two brow
   {"type":"text","id":"mdl","x":510,"y":416,"text":"Opus 4.6","fontSize":14,"strokeColor":"#b0b0b0"},
   {"type":"ellipse","id":"sendb","x":596,"y":410,"width":28,"height":28,"backgroundColor":"#c4795b","fillStyle":"solid","strokeColor":"#c4795b","strokeWidth":1},
   {"type":"cameraUpdate","width":400,"height":300,"x":40,"y":290},
-  {"type":"text","id":"plushl","x":131,"y":410,"text":"+","fontSize":30,"strokeColor":"#4a9eed"},
+  {"type":"text","id":"plushl","x":131,"y":406,"text":"+","fontSize":30,"strokeColor":"#4a9eed"},
   {"type":"rectangle","id":"dd","x":115,"y":448,"width":250,"height":92,"backgroundColor":"#ffffff","fillStyle":"solid","roundness":{"type":3},"strokeColor":"#d4d4d0","strokeWidth":1},
   {"type":"text","id":"dd1","x":130,"y":455,"text":"@ Add files and photos","fontSize":16,"strokeColor":"#555555"},
   {"type":"text","id":"dd2","x":130,"y":480,"text":"~ Research","fontSize":16,"strokeColor":"#555555"},

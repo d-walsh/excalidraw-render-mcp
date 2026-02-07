@@ -29955,7 +29955,6 @@ var getRequestListener = (fetchCallback, options = {}) => {
 class WebStandardStreamableHTTPServerTransport {
   constructor(options = {}) {
     this._started = false;
-    this._hasHandledRequest = false;
     this._streamMapping = new Map;
     this._requestToStreamMapping = new Map;
     this._requestResponseMap = new Map;
@@ -30018,10 +30017,6 @@ class WebStandardStreamableHTTPServerTransport {
     return;
   }
   async handleRequest(req, options) {
-    if (!this.sessionIdGenerator && this._hasHandledRequest) {
-      throw new Error("Stateless transport cannot be reused across requests. Create a new transport per request.");
-    }
-    this._hasHandledRequest = true;
     const validationError = this.validateRequestHeaders(req);
     if (validationError) {
       return validationError;
@@ -30476,7 +30471,7 @@ class StreamableHTTPServerTransport {
         authInfo: context?.authInfo,
         parsedBody: context?.parsedBody
       });
-    }, { overrideGlobalObjects: false });
+    });
   }
   get sessionId() {
     return this._webStandardTransport.sessionId;
@@ -30515,7 +30510,7 @@ class StreamableHTTPServerTransport {
         authInfo,
         parsedBody
       });
-    }, { overrideGlobalObjects: false });
+    });
     await handler(req, res);
   }
   closeSSEStream(requestId) {

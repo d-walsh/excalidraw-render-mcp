@@ -53,8 +53,11 @@ function extractViewportAndElements(elements: any[]): {
 }
 
 const ExpandIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-    <path d="M2 5V2h3M11 2h3v3M14 11v3h-3M5 14H2v-3" />
+  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M8.5 1.5H12.5V5.5" />
+    <path d="M5.5 12.5H1.5V8.5" />
+    <path d="M12.5 1.5L8 6" />
+    <path d="M1.5 12.5L6 8" />
   </svg>
 );
 

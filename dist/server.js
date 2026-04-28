@@ -3,25 +3,43 @@ var __getProtoOf = Object.getPrototypeOf;
 var __defProp = Object.defineProperty;
 var __getOwnPropNames = Object.getOwnPropertyNames;
 var __hasOwnProp = Object.prototype.hasOwnProperty;
+function __accessProp(key) {
+  return this[key];
+}
+var __toESMCache_node;
+var __toESMCache_esm;
 var __toESM = (mod, isNodeMode, target) => {
+  var canCache = mod != null && typeof mod === "object";
+  if (canCache) {
+    var cache = isNodeMode ? __toESMCache_node ??= new WeakMap : __toESMCache_esm ??= new WeakMap;
+    var cached = cache.get(mod);
+    if (cached)
+      return cached;
+  }
   target = mod != null ? __create(__getProtoOf(mod)) : {};
   const to = isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target;
   for (let key of __getOwnPropNames(mod))
     if (!__hasOwnProp.call(to, key))
       __defProp(to, key, {
-        get: () => mod[key],
+        get: __accessProp.bind(mod, key),
         enumerable: true
       });
+  if (canCache)
+    cache.set(mod, to);
   return to;
 };
 var __commonJS = (cb, mod) => () => (mod || cb((mod = { exports: {} }).exports, mod), mod.exports);
+var __returnValue = (v) => v;
+function __exportSetter(name, newValue) {
+  this[name] = __returnValue.bind(null, newValue);
+}
 var __export = (target, all) => {
   for (var name in all)
     __defProp(target, name, {
       get: all[name],
       enumerable: true,
       configurable: true,
-      set: (newValue) => all[name] = () => newValue
+      set: __exportSetter.bind(all, name)
     });
 };
 
@@ -10525,7 +10543,7 @@ __export(exports_core2, {
   safeDecode: () => safeDecode,
   registry: () => registry,
   regexes: () => exports_regexes,
-  process: () => process,
+  process: () => process2,
   prettifyError: () => prettifyError,
   parseAsync: () => parseAsync,
   parse: () => parse,
@@ -20989,7 +21007,7 @@ function initializeContext(params) {
     external: params?.external ?? undefined
   };
 }
-function process(schema, ctx, _params = { path: [], schemaPath: [] }) {
+function process2(schema, ctx, _params = { path: [], schemaPath: [] }) {
   var _a2;
   const def = schema._zod.def;
   const seen = ctx.seen.get(schema);
@@ -21026,7 +21044,7 @@ function process(schema, ctx, _params = { path: [], schemaPath: [] }) {
     if (parent) {
       if (!result.ref)
         result.ref = parent;
-      process(parent, ctx, params);
+      process2(parent, ctx, params);
       ctx.seen.get(parent).isParent = true;
     }
   }
@@ -21302,14 +21320,14 @@ function isTransforming(_schema, _ctx) {
 }
 var createToJSONSchemaMethod = (schema, processors = {}) => (params) => {
   const ctx = initializeContext({ ...params, processors });
-  process(schema, ctx);
+  process2(schema, ctx);
   extractDefs(ctx, schema);
   return finalize(ctx, schema);
 };
 var createStandardJSONSchemaMethod = (schema, io, processors = {}) => (params) => {
   const { libraryOptions, target } = params ?? {};
   const ctx = initializeContext({ ...libraryOptions ?? {}, target, io, processors });
-  process(schema, ctx);
+  process2(schema, ctx);
   extractDefs(ctx, schema);
   return finalize(ctx, schema);
 };
@@ -21560,7 +21578,7 @@ var arrayProcessor = (schema, ctx, _json, params) => {
   if (typeof maximum === "number")
     json.maxItems = maximum;
   json.type = "array";
-  json.items = process(def.element, ctx, { ...params, path: [...params.path, "items"] });
+  json.items = process2(def.element, ctx, { ...params, path: [...params.path, "items"] });
 };
 var objectProcessor = (schema, ctx, _json, params) => {
   const json = _json;
@@ -21569,7 +21587,7 @@ var objectProcessor = (schema, ctx, _json, params) => {
   json.properties = {};
   const shape = def.shape;
   for (const key in shape) {
-    json.properties[key] = process(shape[key], ctx, {
+    json.properties[key] = process2(shape[key], ctx, {
       ...params,
       path: [...params.path, "properties", key]
     });
@@ -21592,7 +21610,7 @@ var objectProcessor = (schema, ctx, _json, params) => {
     if (ctx.io === "output")
       json.additionalProperties = false;
   } else if (def.catchall) {
-    json.additionalProperties = process(def.catchall, ctx, {
+    json.additionalProperties = process2(def.catchall, ctx, {
       ...params,
       path: [...params.path, "additionalProperties"]
     });
@@ -21601,7 +21619,7 @@ var objectProcessor = (schema, ctx, _json, params) => {
 var unionProcessor = (schema, ctx, json, params) => {
   const def = schema._zod.def;
   const isExclusive = def.inclusive === false;
-  const options = def.options.map((x, i) => process(x, ctx, {
+  const options = def.options.map((x, i) => process2(x, ctx, {
     ...params,
     path: [...params.path, isExclusive ? "oneOf" : "anyOf", i]
   }));
@@ -21613,11 +21631,11 @@ var unionProcessor = (schema, ctx, json, params) => {
 };
 var intersectionProcessor = (schema, ctx, json, params) => {
   const def = schema._zod.def;
-  const a = process(def.left, ctx, {
+  const a = process2(def.left, ctx, {
     ...params,
     path: [...params.path, "allOf", 0]
   });
-  const b = process(def.right, ctx, {
+  const b = process2(def.right, ctx, {
     ...params,
     path: [...params.path, "allOf", 1]
   });
@@ -21634,11 +21652,11 @@ var tupleProcessor = (schema, ctx, _json, params) => {
   json.type = "array";
   const prefixPath = ctx.target === "draft-2020-12" ? "prefixItems" : "items";
   const restPath = ctx.target === "draft-2020-12" ? "items" : ctx.target === "openapi-3.0" ? "items" : "additionalItems";
-  const prefixItems = def.items.map((x, i) => process(x, ctx, {
+  const prefixItems = def.items.map((x, i) => process2(x, ctx, {
     ...params,
     path: [...params.path, prefixPath, i]
   }));
-  const rest = def.rest ? process(def.rest, ctx, {
+  const rest = def.rest ? process2(def.rest, ctx, {
     ...params,
     path: [...params.path, restPath, ...ctx.target === "openapi-3.0" ? [def.items.length] : []]
   }) : null;
@@ -21678,7 +21696,7 @@ var recordProcessor = (schema, ctx, _json, params) => {
   const keyBag = keyType._zod.bag;
   const patterns = keyBag?.patterns;
   if (def.mode === "loose" && patterns && patterns.size > 0) {
-    const valueSchema = process(def.valueType, ctx, {
+    const valueSchema = process2(def.valueType, ctx, {
       ...params,
       path: [...params.path, "patternProperties", "*"]
     });
@@ -21688,12 +21706,12 @@ var recordProcessor = (schema, ctx, _json, params) => {
     }
   } else {
     if (ctx.target === "draft-07" || ctx.target === "draft-2020-12") {
-      json.propertyNames = process(def.keyType, ctx, {
+      json.propertyNames = process2(def.keyType, ctx, {
         ...params,
         path: [...params.path, "propertyNames"]
       });
     }
-    json.additionalProperties = process(def.valueType, ctx, {
+    json.additionalProperties = process2(def.valueType, ctx, {
       ...params,
       path: [...params.path, "additionalProperties"]
     });
@@ -21708,7 +21726,7 @@ var recordProcessor = (schema, ctx, _json, params) => {
 };
 var nullableProcessor = (schema, ctx, json, params) => {
   const def = schema._zod.def;
-  const inner = process(def.innerType, ctx, params);
+  const inner = process2(def.innerType, ctx, params);
   const seen = ctx.seen.get(schema);
   if (ctx.target === "openapi-3.0") {
     seen.ref = def.innerType;
@@ -21719,20 +21737,20 @@ var nullableProcessor = (schema, ctx, json, params) => {
 };
 var nonoptionalProcessor = (schema, ctx, _json, params) => {
   const def = schema._zod.def;
-  process(def.innerType, ctx, params);
+  process2(def.innerType, ctx, params);
   const seen = ctx.seen.get(schema);
   seen.ref = def.innerType;
 };
 var defaultProcessor = (schema, ctx, json, params) => {
   const def = schema._zod.def;
-  process(def.innerType, ctx, params);
+  process2(def.innerType, ctx, params);
   const seen = ctx.seen.get(schema);
   seen.ref = def.innerType;
   json.default = JSON.parse(JSON.stringify(def.defaultValue));
 };
 var prefaultProcessor = (schema, ctx, json, params) => {
   const def = schema._zod.def;
-  process(def.innerType, ctx, params);
+  process2(def.innerType, ctx, params);
   const seen = ctx.seen.get(schema);
   seen.ref = def.innerType;
   if (ctx.io === "input")
@@ -21740,7 +21758,7 @@ var prefaultProcessor = (schema, ctx, json, params) => {
 };
 var catchProcessor = (schema, ctx, json, params) => {
   const def = schema._zod.def;
-  process(def.innerType, ctx, params);
+  process2(def.innerType, ctx, params);
   const seen = ctx.seen.get(schema);
   seen.ref = def.innerType;
   let catchValue;
@@ -21754,32 +21772,32 @@ var catchProcessor = (schema, ctx, json, params) => {
 var pipeProcessor = (schema, ctx, _json, params) => {
   const def = schema._zod.def;
   const innerType = ctx.io === "input" ? def.in._zod.def.type === "transform" ? def.out : def.in : def.out;
-  process(innerType, ctx, params);
+  process2(innerType, ctx, params);
   const seen = ctx.seen.get(schema);
   seen.ref = innerType;
 };
 var readonlyProcessor = (schema, ctx, json, params) => {
   const def = schema._zod.def;
-  process(def.innerType, ctx, params);
+  process2(def.innerType, ctx, params);
   const seen = ctx.seen.get(schema);
   seen.ref = def.innerType;
   json.readOnly = true;
 };
 var promiseProcessor = (schema, ctx, _json, params) => {
   const def = schema._zod.def;
-  process(def.innerType, ctx, params);
+  process2(def.innerType, ctx, params);
   const seen = ctx.seen.get(schema);
   seen.ref = def.innerType;
 };
 var optionalProcessor = (schema, ctx, _json, params) => {
   const def = schema._zod.def;
-  process(def.innerType, ctx, params);
+  process2(def.innerType, ctx, params);
   const seen = ctx.seen.get(schema);
   seen.ref = def.innerType;
 };
 var lazyProcessor = (schema, ctx, _json, params) => {
   const innerType = schema._zod.innerType;
-  process(innerType, ctx, params);
+  process2(innerType, ctx, params);
   const seen = ctx.seen.get(schema);
   seen.ref = innerType;
 };
@@ -21831,7 +21849,7 @@ function toJSONSchema(input, params) {
     const defs = {};
     for (const entry of registry2._idmap.entries()) {
       const [_, schema] = entry;
-      process(schema, ctx2);
+      process2(schema, ctx2);
     }
     const schemas = {};
     const external = {
@@ -21854,7 +21872,7 @@ function toJSONSchema(input, params) {
     return { schemas };
   }
   const ctx = initializeContext({ ...params, processors: allProcessors });
-  process(input, ctx);
+  process2(input, ctx);
   extractDefs(ctx, input);
   return finalize(ctx, input);
 }
@@ -21900,7 +21918,7 @@ class JSONSchemaGenerator {
     });
   }
   process(schema, _params = { path: [], schemaPath: [] }) {
-    return process(schema, this.ctx, _params);
+    return process2(schema, this.ctx, _params);
   }
   emit(schema, _params) {
     if (_params) {
@@ -28425,6 +28443,123 @@ var EMPTY_COMPLETION_RESULT = {
 };
 
 // server.ts
+import fs2 from "node:fs";
+import os2 from "node:os";
+import path2 from "node:path";
+var LOG_DIR = path2.join(os2.homedir(), ".cache", "excalidraw-render");
+var LOG_PATH = path2.join(LOG_DIR, "server.log");
+try {
+  fs2.mkdirSync(LOG_DIR, { recursive: true });
+} catch {}
+function logLine(level, msg) {
+  const ts = new Date().toISOString();
+  const line = `${ts} [${level}] ${msg}
+`;
+  try {
+    fs2.appendFileSync(LOG_PATH, line);
+  } catch {}
+}
+function logInfo(msg) {
+  logLine("INFO", msg);
+}
+function logWarn(msg) {
+  logLine("WARN", msg);
+}
+function logError(msg) {
+  logLine("ERROR", msg);
+}
+function logCrit(msg) {
+  logLine("CRIT", msg);
+}
+var serverStartTime = Date.now();
+var toolCallCount = 0;
+var lastErrorTs = null;
+var lastErrorMsg = "none";
+var TIMEOUTS = {
+  excalidraw_read_me: 30000,
+  create_excalidraw_diagram: 120000,
+  excalidraw_render_health_self: 1e4
+};
+function getTimeout(toolName) {
+  return TIMEOUTS[toolName] ?? 60000;
+}
+async function safeCallTool(toolName, fn) {
+  toolCallCount += 1;
+  const callN = toolCallCount;
+  const timeoutMs = getTimeout(toolName);
+  logInfo(`CALL #${callN} ${toolName}`);
+  const t0 = Date.now();
+  let timer = null;
+  try {
+    const result = await Promise.race([
+      fn(),
+      new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error(`__TIMEOUT__:${timeoutMs}`)), timeoutMs);
+      })
+    ]);
+    if (timer !== null)
+      clearTimeout(timer);
+    const elapsed = ((Date.now() - t0) / 1000).toFixed(1);
+    logInfo(`OK   #${callN} ${toolName} (${elapsed}s)`);
+    return result;
+  } catch (err) {
+    if (timer !== null)
+      clearTimeout(timer);
+    const elapsed = ((Date.now() - t0) / 1000).toFixed(1);
+    lastErrorTs = Date.now();
+    const isTimeout = err instanceof Error && err.message.startsWith("__TIMEOUT__:");
+    if (isTimeout) {
+      const timeoutS = (timeoutMs / 1000).toFixed(0);
+      lastErrorMsg = `timeout after ${elapsed}s`;
+      logWarn(`TIMEOUT #${callN} ${toolName} after ${elapsed}s (limit ${timeoutS}s)`);
+      return {
+        content: [{
+          type: "text",
+          text: JSON.stringify({
+            error: "timeout",
+            tool: toolName,
+            timeout_s: Number(timeoutS),
+            message: `${toolName} did not complete within ${timeoutS}s. Check log: ${LOG_PATH}`
+          })
+        }],
+        isError: true
+      };
+    }
+    const errMsg = err instanceof Error ? err.message : String(err);
+    const stack = err instanceof Error ? err.stack ?? "" : "";
+    lastErrorMsg = errMsg;
+    logError(`CRASH #${callN} ${toolName} after ${elapsed}s: ${errMsg}
+${stack}`);
+    return {
+      content: [{
+        type: "text",
+        text: JSON.stringify({
+          error: "exception",
+          tool: toolName,
+          type: err instanceof Error ? err.constructor.name : typeof err,
+          message: errMsg
+        })
+      }],
+      isError: true
+    };
+  }
+}
+process.on("uncaughtException", (err) => {
+  logCrit(`UNCAUGHT EXCEPTION: ${err.name}: ${err.message}
+${err.stack ?? ""}`);
+  process.exit(1);
+});
+process.on("unhandledRejection", (reason) => {
+  const msg = reason instanceof Error ? `${reason.name}: ${reason.message}
+${reason.stack ?? ""}` : String(reason);
+  logCrit(`UNHANDLED REJECTION: ${msg}`);
+});
+setInterval(() => {
+  const uptimeSec = Math.round((Date.now() - serverStartTime) / 1000);
+  const lastErrStr = lastErrorTs ? `${Math.round((Date.now() - lastErrorTs) / 1000)}s ago` : "none";
+  logInfo(`HEARTBEAT uptime=${uptimeSec}s calls=${toolCallCount} last_error=${lastErrStr}`);
+}, 60000).unref();
+logInfo("SERVER START excalidraw-render");
 var RECALL_CHEAT_SHEET = `# Excalidraw Element Format
 
 Thanks for calling excalidraw_read_me! Do NOT call it again in this conversation — you will not see anything new. Now use create_excalidraw_diagram to draw.
@@ -28613,7 +28748,7 @@ This is the most common quality defect. A single arrow through a shape ruins the
 ### Example: Two connected labeled boxes
 \`\`\`json
 [
-  { "type": "cameraUpdate", "width": 800, "height": 600, "x": 50, "y": 50 },
+  { "type": "cameraUpdate", "width": 800, "height": 600, "x": 0, "y": 0 },
   { "type": "rectangle", "id": "b1", "x": 100, "y": 100, "width": 200, "height": 100, "roundness": { "type": 3 }, "backgroundColor": "#a5d8ff", "fillStyle": "solid", "label": { "text": "Start", "fontSize": 20 } },
   { "type": "rectangle", "id": "b2", "x": 450, "y": 100, "width": 200, "height": 100, "roundness": { "type": 3 }, "backgroundColor": "#b2f2bb", "fillStyle": "solid", "label": { "text": "End", "fontSize": 20 } },
   { "type": "arrow", "id": "a1", "x": 300, "y": 150, "width": 150, "height": 0, "points": [[0,0],[150,0]], "endArrowhead": "arrow", "startBinding": { "elementId": "b1", "fixedPoint": [1, 0.5] }, "endBinding": { "elementId": "b2", "fixedPoint": [0, 0.5] } }
@@ -28803,7 +28938,9 @@ function registerTools(server) {
     description: "Returns the Excalidraw element format reference with color palettes, examples, and tips. Call this BEFORE using create_excalidraw_diagram for the first time.",
     annotations: { readOnlyHint: true }
   }, async () => {
-    return { content: [{ type: "text", text: RECALL_CHEAT_SHEET }] };
+    return safeCallTool("excalidraw_read_me", async () => ({
+      content: [{ type: "text", text: RECALL_CHEAT_SHEET }]
+    }));
   });
   server.registerTool("create_excalidraw_diagram", {
     description: `Renders a hand-drawn Excalidraw diagram to a PNG or SVG file.
@@ -28820,39 +28957,39 @@ Returns the file path of the saved file.`,
     }),
     annotations: { readOnlyHint: true }
   }, async ({ elements, outputPath, format, files }) => {
-    let parsed;
-    try {
-      parsed = JSON.parse(elements);
-      if (!Array.isArray(parsed)) {
+    return safeCallTool("create_excalidraw_diagram", async () => {
+      let parsed;
+      try {
+        parsed = JSON.parse(elements);
+        if (!Array.isArray(parsed)) {
+          return {
+            content: [{ type: "text", text: "elements must be a JSON array." }],
+            isError: true
+          };
+        }
+      } catch (e) {
         return {
-          content: [{ type: "text", text: "elements must be a JSON array." }],
+          content: [{ type: "text", text: `Invalid JSON in elements: ${e.message}. Ensure no comments, no trailing commas, and proper quoting.` }],
           isError: true
         };
       }
-    } catch (e) {
-      return {
-        content: [{ type: "text", text: `Invalid JSON in elements: ${e.message}. Ensure no comments, no trailing commas, and proper quoting.` }],
-        isError: true
-      };
-    }
-    const imageEls = parsed.filter((el) => el.type === "image");
-    if (imageEls.length > 0 && !files) {
-      return {
-        content: [{ type: "text", text: "Image elements found but no 'files' parameter provided." }],
-        isError: true
-      };
-    }
-    if (imageEls.length > 0 && files) {
-      const missing = imageEls.filter((el) => el.fileId && !files[el.fileId]);
-      if (missing.length > 0) {
-        const ids = missing.map((el) => el.fileId).join(", ");
+      const imageEls = parsed.filter((el) => el.type === "image");
+      if (imageEls.length > 0 && !files) {
         return {
-          content: [{ type: "text", text: `Image element(s) reference missing fileId(s): ${ids}. Add them to the 'files' parameter.` }],
+          content: [{ type: "text", text: "Image elements found but no 'files' parameter provided." }],
           isError: true
         };
       }
-    }
-    try {
+      if (imageEls.length > 0 && files) {
+        const missing = imageEls.filter((el) => el.fileId && !files[el.fileId]);
+        if (missing.length > 0) {
+          const ids = missing.map((el) => el.fileId).join(", ");
+          return {
+            content: [{ type: "text", text: `Image element(s) reference missing fileId(s): ${ids}. Add them to the 'files' parameter.` }],
+            isError: true
+          };
+        }
+      }
       const outputFormat = format ?? "png";
       const filesTyped = files;
       const result = outputFormat === "svg" ? await renderToSvg(elements, outputPath, { files: filesTyped }) : await renderToPng(elements, outputPath, { files: filesTyped });
@@ -28860,12 +28997,29 @@ Returns the file path of the saved file.`,
       return {
         content: [{ type: "text", text: `${outputFormat.toUpperCase()} (${result.width}x${result.height}, ${result.inputCount} shapes rendered${imgNote}) saved to: ${result.path}` }]
       };
-    } catch (e) {
+    });
+  });
+  server.registerTool("excalidraw_render_health_self", {
+    description: "Returns server health: uptime, log path, last error message and timestamp, total tool calls. Use to diagnose crashes or confirm the server is alive.",
+    annotations: { readOnlyHint: true }
+  }, async () => {
+    return safeCallTool("excalidraw_render_health_self", async () => {
+      const uptimeSec = Math.round((Date.now() - serverStartTime) / 1000);
+      const lastErrAgo = lastErrorTs ? `${Math.round((Date.now() - lastErrorTs) / 1000)}s ago` : "none";
       return {
-        content: [{ type: "text", text: `Render failed: ${e.message}` }],
-        isError: true
+        content: [{
+          type: "text",
+          text: JSON.stringify({
+            status: "ok",
+            uptime_sec: uptimeSec,
+            total_calls: toolCallCount,
+            last_error: lastErrorMsg,
+            last_error_ago: lastErrAgo,
+            log_path: LOG_PATH
+          }, null, 2)
+        }]
       };
-    }
+    });
   });
 }
 function createServer() {

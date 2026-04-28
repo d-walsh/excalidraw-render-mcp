@@ -17,10 +17,12 @@ async function shutdown() {
   process.exit(0);
 }
 
-process.on("SIGINT", shutdown);
+process.on("SIGINT",  shutdown);
 process.on("SIGTERM", shutdown);
 
 main().catch((e) => {
-  console.error(e);
+  // Top-level crash — server.ts uncaughtException hook handles logging;
+  // this catches errors thrown before the process-level hook is wired up.
+  console.error("[excalidraw-render] fatal startup error:", e);
   process.exit(1);
 });

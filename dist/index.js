@@ -1,12 +1,16 @@
 #!/usr/bin/env node
 var __defProp = Object.defineProperty;
+var __returnValue = (v) => v;
+function __exportSetter(name, newValue) {
+  this[name] = __returnValue.bind(null, newValue);
+}
 var __export = (target, all) => {
   for (var name in all)
     __defProp(target, name, {
       get: all[name],
       enumerable: true,
       configurable: true,
-      set: (newValue) => all[name] = () => newValue
+      set: __exportSetter.bind(all, name)
     });
 };
 
@@ -5714,6 +5718,6 @@ async function shutdown() {
 process.on("SIGINT", shutdown);
 process.on("SIGTERM", shutdown);
 main().catch((e) => {
-  console.error(e);
+  console.error("[excalidraw-render] fatal startup error:", e);
   process.exit(1);
 });

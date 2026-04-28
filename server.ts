@@ -2,6 +2,171 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod/v4";
 import { renderToPng, renderToSvg } from "./renderer.js";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+
+// ============================================================
+// Structured logging — every crash / timeout gets a forensic trail
+// ============================================================
+
+const LOG_DIR  = path.join(os.homedir(), ".cache", "excalidraw-render");
+const LOG_PATH = path.join(LOG_DIR, "server.log");
+
+try { fs.mkdirSync(LOG_DIR, { recursive: true }); } catch { /* ignore */ }
+
+function logLine(level: string, msg: string): void {
+  const ts   = new Date().toISOString();
+  const line = `${ts} [${level}] ${msg}\n`;
+  try { fs.appendFileSync(LOG_PATH, line); } catch { /* never crash on log */ }
+}
+
+function logInfo(msg: string): void  { logLine("INFO",  msg); }
+function logWarn(msg: string): void  { logLine("WARN",  msg); }
+function logError(msg: string): void { logLine("ERROR", msg); }
+function logCrit(msg: string): void  { logLine("CRIT",  msg); }
+
+// ============================================================
+// Server-level diagnostics (updated by safeCallTool)
+// ============================================================
+
+const serverStartTime: number = Date.now();
+let toolCallCount: number     = 0;
+let lastErrorTs: number | null = null;
+let lastErrorMsg: string       = "none";
+
+// ============================================================
+// Timeout constants (ms)
+//   read/parse ops  = 30 s
+//   render/export ops (browser-backed PNG/SVG/PDF) = 120 s
+// ============================================================
+
+const TIMEOUTS: Record<string, number> = {
+  excalidraw_read_me:        30_000,
+  create_excalidraw_diagram: 120_000,
+  excalidraw_render_health_self: 10_000,
+};
+
+function getTimeout(toolName: string): number {
+  return TIMEOUTS[toolName] ?? 60_000;
+}
+
+// ============================================================
+// safeCallTool — never-crash wrapper for every tool dispatch
+// ============================================================
+
+type McpContent = Array<{ type: string; text: string }>;
+
+async function safeCallTool(
+  toolName: string,
+  fn: () => Promise<CallToolResult>
+): Promise<CallToolResult> {
+  toolCallCount += 1;
+  const callN     = toolCallCount;
+  const timeoutMs = getTimeout(toolName);
+
+  logInfo(`CALL #${callN} ${toolName}`);
+  const t0 = Date.now();
+
+  let timer: ReturnType<typeof setTimeout> | null = null;
+
+  try {
+    const result = await Promise.race([
+      fn(),
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(
+          () => reject(new Error(`__TIMEOUT__:${timeoutMs}`)),
+          timeoutMs
+        );
+      }),
+    ]);
+
+    if (timer !== null) clearTimeout(timer);
+
+    const elapsed = ((Date.now() - t0) / 1000).toFixed(1);
+    logInfo(`OK   #${callN} ${toolName} (${elapsed}s)`);
+    return result;
+
+  } catch (err: unknown) {
+    if (timer !== null) clearTimeout(timer);
+
+    const elapsed   = ((Date.now() - t0) / 1000).toFixed(1);
+    lastErrorTs     = Date.now();
+
+    const isTimeout =
+      err instanceof Error && err.message.startsWith("__TIMEOUT__:");
+
+    if (isTimeout) {
+      const timeoutS = (timeoutMs / 1000).toFixed(0);
+      lastErrorMsg = `timeout after ${elapsed}s`;
+      logWarn(`TIMEOUT #${callN} ${toolName} after ${elapsed}s (limit ${timeoutS}s)`);
+      return {
+        content: [{
+          type: "text",
+          text: JSON.stringify({
+            error:     "timeout",
+            tool:      toolName,
+            timeout_s: Number(timeoutS),
+            message:   `${toolName} did not complete within ${timeoutS}s. Check log: ${LOG_PATH}`,
+          }),
+        }],
+        isError: true,
+      };
+    }
+
+    // All other exceptions — log + return structured error (never crash)
+    const errMsg = err instanceof Error ? err.message : String(err);
+    const stack  = err instanceof Error ? (err.stack ?? "")  : "";
+    lastErrorMsg = errMsg;
+    logError(`CRASH #${callN} ${toolName} after ${elapsed}s: ${errMsg}\n${stack}`);
+
+    return {
+      content: [{
+        type: "text",
+        text: JSON.stringify({
+          error:   "exception",
+          tool:    toolName,
+          type:    err instanceof Error ? err.constructor.name : typeof err,
+          message: errMsg,
+        }),
+      }],
+      isError: true,
+    };
+  }
+}
+
+// ============================================================
+// Uncaught-exception hooks — forensic logging before process dies
+// ============================================================
+
+process.on("uncaughtException", (err: Error) => {
+  logCrit(`UNCAUGHT EXCEPTION: ${err.name}: ${err.message}\n${err.stack ?? ""}`);
+  process.exit(1);
+});
+
+process.on("unhandledRejection", (reason: unknown) => {
+  const msg =
+    reason instanceof Error
+      ? `${reason.name}: ${reason.message}\n${reason.stack ?? ""}`
+      : String(reason);
+  logCrit(`UNHANDLED REJECTION: ${msg}`);
+});
+
+// ============================================================
+// Heartbeat — logs "alive" every 60s
+// ============================================================
+
+setInterval(() => {
+  const uptimeSec = Math.round((Date.now() - serverStartTime) / 1000);
+  const lastErrStr = lastErrorTs
+    ? `${Math.round((Date.now() - lastErrorTs) / 1000)}s ago`
+    : "none";
+  logInfo(
+    `HEARTBEAT uptime=${uptimeSec}s calls=${toolCallCount} last_error=${lastErrStr}`
+  );
+}, 60_000).unref();
+
+logInfo("SERVER START excalidraw-render");
 
 // ============================================================
 // RECALL: shared knowledge for the agent
@@ -194,7 +359,7 @@ This is the most common quality defect. A single arrow through a shape ruins the
 ### Example: Two connected labeled boxes
 \`\`\`json
 [
-  { "type": "cameraUpdate", "width": 800, "height": 600, "x": 50, "y": 50 },
+  { "type": "cameraUpdate", "width": 800, "height": 600, "x": 0, "y": 0 },
   { "type": "rectangle", "id": "b1", "x": 100, "y": 100, "width": 200, "height": 100, "roundness": { "type": 3 }, "backgroundColor": "#a5d8ff", "fillStyle": "solid", "label": { "text": "Start", "fontSize": 20 } },
   { "type": "rectangle", "id": "b2", "x": 450, "y": 100, "width": 200, "height": 100, "roundness": { "type": 3 }, "backgroundColor": "#b2f2bb", "fillStyle": "solid", "label": { "text": "End", "fontSize": 20 } },
   { "type": "arrow", "id": "a1", "x": 300, "y": 150, "width": 150, "height": 0, "points": [[0,0],[150,0]], "endArrowhead": "arrow", "startBinding": { "elementId": "b1", "fixedPoint": [1, 0.5] }, "endBinding": { "elementId": "b2", "fixedPoint": [0, 0.5] } }
@@ -394,7 +559,9 @@ export function registerTools(server: McpServer): void {
       annotations: { readOnlyHint: true },
     },
     async (): Promise<CallToolResult> => {
-      return { content: [{ type: "text", text: RECALL_CHEAT_SHEET }] };
+      return safeCallTool("excalidraw_read_me", async () => ({
+        content: [{ type: "text", text: RECALL_CHEAT_SHEET }],
+      }));
     },
   );
 
@@ -429,43 +596,43 @@ Returns the file path of the saved file.`,
       annotations: { readOnlyHint: true },
     },
     async ({ elements, outputPath, format, files }): Promise<CallToolResult> => {
-      // Validate JSON before attempting render
-      let parsed: any[];
-      try {
-        parsed = JSON.parse(elements);
-        if (!Array.isArray(parsed)) {
+      return safeCallTool("create_excalidraw_diagram", async () => {
+        // Validate JSON before attempting render
+        let parsed: any[];
+        try {
+          parsed = JSON.parse(elements);
+          if (!Array.isArray(parsed)) {
+            return {
+              content: [{ type: "text", text: "elements must be a JSON array." }],
+              isError: true,
+            };
+          }
+        } catch (e) {
           return {
-            content: [{ type: "text", text: "elements must be a JSON array." }],
+            content: [{ type: "text", text: `Invalid JSON in elements: ${(e as Error).message}. Ensure no comments, no trailing commas, and proper quoting.` }],
             isError: true,
           };
         }
-      } catch (e) {
-        return {
-          content: [{ type: "text", text: `Invalid JSON in elements: ${(e as Error).message}. Ensure no comments, no trailing commas, and proper quoting.` }],
-          isError: true,
-        };
-      }
 
-      // Validate image fileIds against files map
-      const imageEls = parsed.filter((el: any) => el.type === "image");
-      if (imageEls.length > 0 && !files) {
-        return {
-          content: [{ type: "text", text: "Image elements found but no 'files' parameter provided." }],
-          isError: true,
-        };
-      }
-      if (imageEls.length > 0 && files) {
-        const missing = imageEls.filter((el: any) => el.fileId && !files[el.fileId]);
-        if (missing.length > 0) {
-          const ids = missing.map((el: any) => el.fileId).join(", ");
+        // Validate image fileIds against files map
+        const imageEls = parsed.filter((el: any) => el.type === "image");
+        if (imageEls.length > 0 && !files) {
           return {
-            content: [{ type: "text", text: `Image element(s) reference missing fileId(s): ${ids}. Add them to the 'files' parameter.` }],
+            content: [{ type: "text", text: "Image elements found but no 'files' parameter provided." }],
             isError: true,
           };
         }
-      }
+        if (imageEls.length > 0 && files) {
+          const missing = imageEls.filter((el: any) => el.fileId && !files[el.fileId]);
+          if (missing.length > 0) {
+            const ids = missing.map((el: any) => el.fileId).join(", ");
+            return {
+              content: [{ type: "text", text: `Image element(s) reference missing fileId(s): ${ids}. Add them to the 'files' parameter.` }],
+              isError: true,
+            };
+          }
+        }
 
-      try {
         const outputFormat = format ?? "png";
         const filesTyped = files as Record<string, { mimeType: string; dataURL: string }> | undefined;
         const result = outputFormat === "svg"
@@ -475,12 +642,40 @@ Returns the file path of the saved file.`,
         return {
           content: [{ type: "text", text: `${outputFormat.toUpperCase()} (${result.width}x${result.height}, ${result.inputCount} shapes rendered${imgNote}) saved to: ${result.path}` }],
         };
-      } catch (e) {
+      });
+    },
+  );
+
+  // ============================================================
+  // Tool 3: excalidraw_render_health_self — uptime, log, last error
+  // ============================================================
+  server.registerTool(
+    "excalidraw_render_health_self",
+    {
+      description: "Returns server health: uptime, log path, last error message and timestamp, total tool calls. Use to diagnose crashes or confirm the server is alive.",
+      annotations: { readOnlyHint: true },
+    },
+    async (): Promise<CallToolResult> => {
+      return safeCallTool("excalidraw_render_health_self", async () => {
+        const uptimeSec = Math.round((Date.now() - serverStartTime) / 1000);
+        const lastErrAgo = lastErrorTs
+          ? `${Math.round((Date.now() - lastErrorTs) / 1000)}s ago`
+          : "none";
+
         return {
-          content: [{ type: "text", text: `Render failed: ${(e as Error).message}` }],
-          isError: true,
+          content: [{
+            type: "text",
+            text: JSON.stringify({
+              status:           "ok",
+              uptime_sec:       uptimeSec,
+              total_calls:      toolCallCount,
+              last_error:       lastErrorMsg,
+              last_error_ago:   lastErrAgo,
+              log_path:         LOG_PATH,
+            }, null, 2),
+          }],
         };
-      }
+      });
     },
   );
 }
